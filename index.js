@@ -15,7 +15,6 @@ async function run() {
     try {
         const servicesCollection = client.db('geniusCar').collection('services')
         const orderCollection = client.db('geniusCar').collection('orders')
-        const user = { name: 'rana', roll: 12 }
         app.get('/services', async (req, res) => {
             const query = {};
             const cursor = servicesCollection.find(query);
@@ -28,10 +27,42 @@ async function run() {
             const service = await servicesCollection.findOne(query)
             res.send(service)
         })
+        app.get('/orders', async (req, res) => {
+            let query = {}
+            if (req.query.email) {
+                query = {
+                    email: req.query.email
+                }
+            }
+            const cursor = orderCollection.find(query)
+            const orders = await cursor.toArray()
+            res.send(orders)
+        })
+
         app.post('/orders', async (req, res) => {
             const orders = req.body;
             const result = await orderCollection.insertOne(orders)
             res.send(result)
+        })
+        app.patch('/orders/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const status = req.body.status;
+            const updateDoc = {
+                $set: {
+                    status: status
+                }
+            }
+            const result = await orderCollection.updateOne(query, updateDoc)
+            res.send(result)
+        })
+
+
+        app.delete('/orders/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const order = await orderCollection.deleteOne(query)
+            res.send(order)
         })
 
     }
