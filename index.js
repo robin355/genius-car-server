@@ -2,6 +2,7 @@ const express = require('express')
 const app = express()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
+const jwt = require('jsonwebtoken')
 const cors = require('cors')
 const port = process.env.PORT || 5000;
 app.use(cors())
@@ -15,19 +16,48 @@ async function run() {
     try {
         const servicesCollection = client.db('geniusCar').collection('services')
         const orderCollection = client.db('geniusCar').collection('orders')
+        function verifyJwt(req, res, next) {
+            const authheader = req.headers.authorization;
+            if (!authheader) {
+                return res.status(401).send({ massage: 'UnAuthorization access' })
+            }
+            const token = authheader.split(' ')[1]
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+                if (err) {
+                    return res.status(401).send({ massage: 'unAuthrization' })
+                }
+                req.decoded = decoded;
+                next()
+
+            })
+
+        }
+
+
+        //create jwt
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+            res.send({ token })
+        })
         app.get('/services', async (req, res) => {
             const query = {};
             const cursor = servicesCollection.find(query);
             const services = await cursor.toArray()
             res.send(services)
         })
+
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) }
             const service = await servicesCollection.findOne(query)
             res.send(service)
         })
-        app.get('/orders', async (req, res) => {
+        app.get('/orders', verifyJwt, async (req, res) => {
+            const decoded = req.decoded;
+            if (decoded.email !== req.query.email) {
+                return res.status(403).send({ massage: 'UnAuthorization access' })
+            }
             let query = {}
             if (req.query.email) {
                 query = {
